@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>扫雷概率计算器</title>
+<title>扫雷概率计算器(优化版)</title>
+<link rel="manifest" href="manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f2f2f7;padding:12px;color:#333;}
@@ -78,7 +79,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sa
 <body>
 <div class="ctrl">
   行<input id="rows" value="9" style="width:60px;"> 列<input id="cols" value="9" style="width:60px;">
-  <!-- 雷数输入框明确：填入的是剩余雷数（即未标记的雷数） -->
   剩余雷<input id="mines" value="-" placeholder="-" style="width:70px;" title="输入数字表示确定的剩余雷数，输入'-'表示剩余雷数未知">
   <button class="reset" onclick="resetAll()">重置</button>
   <button class="calc" onclick="startCalc()">计算</button>
@@ -135,7 +135,6 @@ let grid = [], prob = [], curProb = [];
 let sel = null, elem = [];
 let isUnknown = true;              // 剩余雷数是否未知
 let flagged = 0;                  // 已标记的雷数 (M)
-let totalMines = 0;              // 总雷数 = flagged + 待定雷（仅在枚举后明确）
 
 // 枚举相关
 let isRunning = false, startTime = 0;
@@ -143,6 +142,10 @@ let probByMines = new Map();      // 总雷数 -> 概率矩阵
 let mineDist = [];               // 总雷数分布 {totalMines, count}
 let curTotalMine = null;        // 当前显示的总雷数(null=整体)
 let unkCells = [], idxMap, constraints = [], okFlag = true;
+
+// 优化相关：前沿格和非前沿格
+let frontierCells = [];          // 前沿格（至少在一个数字周围）
+let nonFrontierCells = [];       // 非前沿格
 
 // ========== 初始化/重置 ==========
 function resetAll() {
@@ -267,31 +270,86 @@ document.addEventListener('keydown', e => {
   if (i >= 0 && i < R && j >= 0 && j < C) { select(i, j); e.preventDefault(); }
 });
 
-// ========== 约束构建 ==========
-function buildConstraints() {
-  unkCells = [];
-  flagged = 0;
+// ========== 优化：识别前沿格 ==========
+function identifyFrontier() {
+  // 标记所有在数字周围的未知格
+  const isNearNumber = Array(R).fill().map(() => Array(C).fill(false));
+  
   for (let i = 0; i < R; i++) {
     for (let j = 0; j < C; j++) {
-      if (grid[i][j] === -2) unkCells.push([i, j]);
-      else if (grid[i][j] === 9) flagged++;
+      const v = grid[i][j];
+      if (v >= 0 && v <= 8) {  // 是数字格
+        for (const [di, dj] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+          const y = i + di, x = j + dj;
+          if (y >= 0 && y < R && x >= 0 && x < C && grid[y][x] === -2) {
+            isNearNumber[y][x] = true;
+          }
+        }
+      }
     }
   }
+  
+  frontierCells = [];
+  nonFrontierCells = [];
+  
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      if (grid[i][j] === -2) {
+        if (isNearNumber[i][j]) {
+          frontierCells.push([i, j]);
+        } else {
+          nonFrontierCells.push([i, j]);
+        }
+      }
+    }
+  }
+  
+  return { frontierCells, nonFrontierCells };
+}
+
+// ========== 优化约束构建 ==========
+function buildConstraintsOptimized() {
+  unkCells = [];  // 这里unkCells只包含前沿格
+  flagged = 0;
+  
+  // 统计已标记雷
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      if (grid[i][j] === 9) flagged++;
+    }
+  }
+  
+  // 识别前沿格
+  identifyFrontier();
+  
+  // unkCells只包含前沿格
+  unkCells = [...frontierCells];
   idxMap = new Map(unkCells.map((p, idx) => [`${p[0]},${p[1]}`, idx]));
+  
   constraints = [];
   okFlag = true;
+  
   for (let i = 0; i < R; i++) {
     for (let j = 0; j < C; j++) {
       const v = grid[i][j];
       if (v < 0 || v > 8) continue;
+      
       const nb = [];
-      let f = 0;
+      let f = 0;  // 周围已标记雷数
+      
       for (const [di, dj] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
         const y = i + di, x = j + dj;
         if (y < 0 || y >= R || x < 0 || x >= C) continue;
         if (grid[y][x] === 9) f++;
-        if (grid[y][x] === -2) nb.push(idxMap.get(`${y},${x}`));
+        if (grid[y][x] === -2) {
+          // 检查这个未知格是否是前沿格（在数字周围）
+          const key = `${y},${x}`;
+          if (idxMap.has(key)) {
+            nb.push(idxMap.get(key));
+          }
+        }
       }
+      
       const need = v - f;
       if (need < 0 || need > nb.length) okFlag = false;
       constraints.push([nb, need]);
@@ -299,19 +357,31 @@ function buildConstraints() {
   }
 }
 
-// ========== 计算入口（剩余雷数未知/已知统一）==========
+// ========== 组合数计算 ==========
+function combination(n, k) {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  k = Math.min(k, n - k);
+  let result = 1;
+  for (let i = 1; i <= k; i++) {
+    result = result * (n - k + i) / i;
+  }
+  return Math.round(result);
+}
+
+// ========== 计算入口（优化版，修正非前沿格概率）==========
 function startCalc() {
   if (isRunning) { tip("正在计算中..."); return; }
-  buildConstraints();
+  
+  // 使用优化后的约束构建
+  buildConstraintsOptimized();
+  
   if (!okFlag) { tip("数字与标记雷冲突，无解"); return; }
   
   const remInput = document.getElementById('mines').value.trim();
   isUnknown = (remInput === '-');
   let fixedRemMines = isUnknown ? null : parseInt(remInput);
   if (!isUnknown && (isNaN(fixedRemMines) || fixedRemMines < 0)) { tip("剩余雷数必须为非负整数"); return; }
-  
-  // 此时flagged已经是最新值
-  if (!isUnknown && fixedRemMines < 0) { tip("剩余雷数不能为负"); return; }
   
   isRunning = true;
   showCalcBtn();
@@ -324,17 +394,18 @@ function startCalc() {
   mineDist = [];
   curTotalMine = null;
   
-  const n = unkCells.length;
-  const usedMines = flagged;        // 已标记雷数
-  const maxRemainMines = n;         // 剩余未知格最多能埋的雷
+  const n = frontierCells.length;  // 前沿格数量
+  const m = nonFrontierCells.length;  // 非前沿格数量
+  const usedMines = flagged;
   
   setTimeout(() => {
     const t0 = performance.now();
     let totalValid = 0, examined = 0;
     let minTotalMine = Infinity, maxTotalMine = -Infinity;
     const overallCnt = Array(n).fill(0);
-    const distMap = new Map();      // 总雷数 -> {count, cntArr}
+    const distMap = new Map();  // 总雷数 -> {count, cntArr}
     
+    // 约束检查函数
     function check(asg) {
       for (const [list, need] of constraints) {
         let fx = 0, ud = 0;
@@ -347,33 +418,90 @@ function startCalc() {
       return true;
     }
     
-    function bt(pos, asg, placed) {   // placed: 当前未翻开格子中埋雷数
+    // 回溯枚举前沿格的布局
+    function bt(pos, asg, placedFrontier) {
       if (!isRunning) return;
+      
       if (pos === n) {
-        examined++;
-        // 对于已知剩余雷数: 必须 placed === fixedRemMines
-        // 对于未知剩余雷数: 所有placed均合法
-        if (isUnknown || placed === fixedRemMines) {
-          totalValid++;
-          const total = usedMines + placed;   // 总雷数
-          for (let k = 0; k < n; k++) if (asg[k] === 1) overallCnt[k]++;
-          
-          if (!distMap.has(total)) {
-            distMap.set(total, { count: 0, cntArr: Array(n).fill(0) });
+        // 前沿格枚举完成，现在处理非前沿格
+        const minRemainingMines = 0;
+        const maxRemainingMines = m;
+        
+        if (isUnknown) {
+          // 剩余雷数未知：非前沿格可以放0到m个雷
+          for (let k = 0; k <= m; k++) {
+            examined++;
+            const total = usedMines + placedFrontier + k;
+            const ways = combination(m, k);  // 非前沿格的组合数
+            
+            totalValid += ways;
+            
+            // 更新前沿格计数
+            for (let i = 0; i < n; i++) {
+              if (asg[i] === 1) overallCnt[i] += ways;
+            }
+            
+            if (!distMap.has(total)) {
+              distMap.set(total, { 
+                count: 0, 
+                cntArr: Array(n).fill(0),
+                frontierMines: placedFrontier  // 记录前沿格中的雷数
+              });
+            }
+            const d = distMap.get(total);
+            d.count += ways;
+            for (let i = 0; i < n; i++) {
+              if (asg[i] === 1) d.cntArr[i] += ways;
+            }
+            
+            if (total < minTotalMine) minTotalMine = total;
+            if (total > maxTotalMine) maxTotalMine = total;
           }
-          const d = distMap.get(total);
-          d.count++;
-          for (let k = 0; k < n; k++) if (asg[k] === 1) d.cntArr[k]++;
-          
-          if (total < minTotalMine) minTotalMine = total;
-          if (total > maxTotalMine) maxTotalMine = total;
+        } else {
+          // 剩余雷数已知
+          const remainingMines = fixedRemMines - placedFrontier;
+          if (remainingMines >= 0 && remainingMines <= m) {
+            examined++;
+            const ways = combination(m, remainingMines);
+            const total = usedMines + placedFrontier + remainingMines;
+            
+            totalValid += ways;
+            
+            for (let i = 0; i < n; i++) {
+              if (asg[i] === 1) overallCnt[i] += ways;
+            }
+            
+            if (!distMap.has(total)) {
+              distMap.set(total, { 
+                count: 0, 
+                cntArr: Array(n).fill(0),
+                frontierMines: placedFrontier
+              });
+            }
+            const d = distMap.get(total);
+            d.count += ways;
+            for (let i = 0; i < n; i++) {
+              if (asg[i] === 1) d.cntArr[i] += ways;
+            }
+            
+            if (total < minTotalMine) minTotalMine = total;
+            if (total > maxTotalMine) maxTotalMine = total;
+          }
         }
         return;
       }
+      
       if (!isRunning) return;
-      asg[pos] = 0; if (check(asg)) bt(pos + 1, asg, placed);
-      asg[pos] = 1; if (check(asg)) bt(pos + 1, asg, placed + 1);
-      asg[pos] = -1;
+      
+      // 尝试当前格不放雷
+      asg[pos] = 0;
+      if (check(asg)) bt(pos + 1, asg, placedFrontier);
+      
+      // 尝试当前格放雷
+      asg[pos] = 1;
+      if (check(asg)) bt(pos + 1, asg, placedFrontier + 1);
+      
+      asg[pos] = -1;  // 回溯
     }
     
     const asg = Array(n).fill(-1);
@@ -393,19 +521,53 @@ function startCalc() {
       return;
     }
     
-    // 整体概率
+    // 计算前沿格概率
     for (let k = 0; k < n; k++) {
-      const [x, y] = unkCells[k];
+      const [x, y] = frontierCells[k];
       prob[x][y] = overallCnt[k] / totalValid;
       curProb[x][y] = prob[x][y];
+    }
+    
+    // 修正非前沿格概率计算：通过总雷数分布加权平均
+    if (m > 0) {
+      // 计算每个非前沿格的总雷数
+      const nonFrontierTotalMines = Array(m).fill(0);
+      
+      for (const [totalM, obj] of distMap.entries()) {
+        // 非前沿格中的总雷数 = totalM - usedMines - obj.frontierMines
+        const nonFrontierMines = totalM - usedMines - obj.frontierMines;
+        
+        if (nonFrontierMines >= 0 && nonFrontierMines <= m) {
+          // 每个非前沿格有相同的概率，平均分布
+          for (let i = 0; i < m; i++) {
+            nonFrontierTotalMines[i] += (nonFrontierMines / m) * obj.count;
+          }
+        }
+      }
+      
+      // 计算每个非前沿格的概率
+      for (let i = 0; i < m; i++) {
+        const [x, y] = nonFrontierCells[i];
+        prob[x][y] = nonFrontierTotalMines[i] / totalValid;
+        curProb[x][y] = prob[x][y];
+      }
     }
     
     // 各总雷数的概率矩阵
     for (const [totalM, obj] of distMap.entries()) {
       const mat = Array(R).fill().map(() => Array(C).fill(0));
+      // 前沿格概率
       for (let k = 0; k < n; k++) {
-        const [x, y] = unkCells[k];
+        const [x, y] = frontierCells[k];
         mat[x][y] = obj.cntArr[k] / obj.count;
+      }
+      // 非前沿格概率
+      if (m > 0) {
+        const nonFrontierMines = totalM - usedMines - obj.frontierMines;
+        const nonFrontierProb = nonFrontierMines / m;
+        for (const [x, y] of nonFrontierCells) {
+          mat[x][y] = nonFrontierProb;
+        }
       }
       probByMines.set(totalM, mat);
       mineDist.push({ totalMines: totalM, count: obj.count });
@@ -413,11 +575,10 @@ function startCalc() {
     mineDist.sort((a, b) => a.totalMines - b.totalMines);
     
     // 显示结果
-    curTotalMine = null;   // 默认整体概率
+    curTotalMine = null;
     for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) updateCell(i, j);
     showResults();
     
-    // 传入剩余雷数范围以便展示
     const minRem = minTotalMine - flagged;
     const maxRem = maxTotalMine - flagged;
     updateResultPanel(totalValid, examined, calcTime, totalTime, 
@@ -428,7 +589,7 @@ function startCalc() {
     } else {
       hideCurBadge();
     }
-    tip(`计算完成: ${totalValid}种布局 · 总雷数范围 ${minTotalMine}~${maxTotalMine} · 剩余雷数 ${minRem}~${maxRem}`);
+    tip(`计算完成: ${totalValid.toLocaleString()}种布局组合 · 前沿格${n}个, 非前沿格${m}个`);
   }, 10);
 }
 
@@ -440,11 +601,11 @@ function updateResultPanel(total, examined, calcTime, totalTime,
   const distDiv = document.getElementById('mineDistList');
   basic.innerHTML = ''; perf.innerHTML = ''; distDiv.innerHTML = '';
   
-  // 基本信息 - 重点显示总雷数和剩余雷数
+  // 基本信息
   let basicHtml = `
     <div class="result-item"><span class="result-label">总耗时</span><span class="result-value highlight">${formatTime(totalTime)}</span></div>
     <div class="result-item"><span class="result-label">枚举布局</span><span class="result-value">${examined.toLocaleString()}</span></div>
-    <div class="result-item"><span class="result-label">有效布局</span><span class="result-value ${total>0?'good':'warning'}">${total.toLocaleString()}</span></div>
+    <div class="result-item"><span class="result-label">有效组合</span><span class="result-value ${total>0?'good':'warning'}">${total.toLocaleString()}</span></div>
   `;
   if (isUnknown) {
     basicHtml += `
@@ -469,11 +630,9 @@ function updateResultPanel(total, examined, calcTime, totalTime,
   perf.innerHTML = `
     <div class="performance-item"><div class="performance-label">每毫秒</div><div class="performance-value">${lpms.toFixed(2)}</div></div>
     <div class="performance-item"><div class="performance-label">每布局</div><div class="performance-value">${msl.toFixed(3)}ms</div></div>
-    ${total ? `<div class="performance-item"><div class="performance-label">有效/ms</div><div class="performance-value">${(total/calcTime).toFixed(2)}</div></div>
-    <div class="performance-item"><div class="performance-label">每有效</div><div class="performance-value">${(calcTime/total).toFixed(3)}ms</div></div>` : ''}
   `;
   
-  // 雷数分布：显示总雷数（并隐含剩余雷数）
+  // 雷数分布
   if (isUnknown && distArr.length) {
     document.getElementById('mineDistSection').style.display = 'block';
     const maxCnt = Math.max(...distArr.map(d => d.count));
@@ -488,7 +647,7 @@ function updateResultPanel(total, examined, calcTime, totalTime,
     
     distArr.forEach(d => {
       const totalM = d.totalMines;
-      const rem = totalM - flagged;   // 剩余雷数
+      const rem = totalM - flagged;
       const per = (d.count / total * 100).toFixed(1);
       const item = document.createElement('div');
       item.className = 'mine-dist-item';
@@ -572,7 +731,7 @@ function importBoard() {
     document.getElementById('rows').value = nr;
     document.getElementById('cols').value = nc;
     document.getElementById('mines').value = mm;
-    resetAll();  // 这会重置flagged及grid
+    resetAll();
     for (let i = 0; i < nr && i + 1 < lines.length; i++) {
       const ln = lines[i + 1].trim();
       if (ln.length < nc) continue;
