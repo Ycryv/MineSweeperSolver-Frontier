@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>扫雷概率计算器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f2f2f7;padding:12px;color:#333;}
+@media(prefers-color-scheme:dark){
+  body{background:#000;color:#fff;}
+  .ctrl input{background:#1c1c1e;border-color:#38383a;color:#fff;}
+  .ctrl button{color:#fff;}
+  .modal-content{background:#1c1c1e;color:#fff;}
+  .modal textarea{background:#2c2c2e;border-color:#38383a;color:#fff;}
+  .modal .cancel{background:#3a3a3c;color:#fff;}
+  .format-info{background:#2c2c2e;color:#e5e5ea;}
+}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
+.ctrl input{width:50px;height:40px;text-align:center;font-size:16px;border:1px solid #ccc;border-radius:8px;background:white;}
+.ctrl button{height:40px;padding:0 14px;font-size:15px;border:none;border-radius:8px;color:white;cursor:pointer;font-weight:500;}
+.reset{background:#8e8e93;}.calc{background:#ff3b30;}.reset-calc{background:#5856d6;}.import-export{background:#34c759;}
+#tip{font-size:14px;color:#333;margin-bottom:6px;text-align:center;}
+.input-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;}
+.input-row button{width:44px;height:44px;font-size:18px;font-weight:bold;border:none;border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:transform 0.1s;}
+.input-row button:active{transform:scale(0.95);}
+.input-row button:nth-child(1){color:#000;}.input-row button:nth-child(2){color:#0044ff;}.input-row button:nth-child(3){color:#008800;}.input-row button:nth-child(4){color:#ff0000;}.input-row button:nth-child(5){color:#000088;}.input-row button:nth-child(6){color:#880000;}.input-row button:nth-child(7){color:#008888;}.input-row button:nth-child(8){color:#000;}.input-row button:nth-child(9){color:#888;}.input-row button:nth-child(10){color:#ff3b30;}.input-row button:nth-child(11){color:#007aff;}
+.board-wrap{display:flex;justify-content:center;overflow-x:auto;margin-top:8px;margin-bottom:20px;}
+#board{display:inline-block;background:#c0c0c0;border:2px solid #888;position:relative;}
+.current-mine-badge{position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:#34c759;color:white;padding:4px 12px;border-radius:12px;font-size:14px;font-weight:600;white-space:nowrap;z-index:20;}
+.row{display:flex;}
+.cell{width:36px;height:36px;border:1px solid #888;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:22px;position:relative;background:#ddd;cursor:pointer;}
+.cell.open{background:#fff;}
+.cell.mine{background:#ffc0c0;color:#d00;}
+.cell.selected{outline:3px solid #007aff;z-index:10;}
+.cell.cell-zero{background-color:rgba(52,199,89,0.35)!important;} .cell.cell-one{background-color:rgba(255,59,48,0.35)!important;}
+.prob-badge{position:absolute;top:0;right:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;pointer-events:none;border-radius: 0;}
+.p0{background-color:#a5ff9e;color:#000;}.p1{background-color:#c8ff9e;}.p2{background-color:#e4ff9e;}.p3{background-color:#f8ff9e;}.p4{background-color:#fffca8;}.p5{background-color:#ffed9e;}.p6{background-color:#ffdb9e;}.p7{background-color:#ffc49e;}.p8{background-color:#ffa99e;}.p9{background-color:#ff9e9e;}
+.p-zero{background:#00ff00!important;color:#000!important;}.p-one{background:#ff0000!important;color:#000!important;}
+@media(prefers-color-scheme:dark){
+  .cell.cell-zero{background-color:rgba(0,255,136,0.4)!important;}.cell.cell-one{background-color:rgba(255,51,102,0.4)!important;}
+  .p0{background:#1e7a1e;color:#fff;}.p1{background:#2d8a2d;}.p2{background:#3c9a3c;}.p3{background:#4baa4b;color:#000;}.p4{background:#5aba5a;}.p5{background:#ff8c1a;}.p6{background:#ff751a;}.p7{background:#ff5e1a;}.p8{background:#ff471a;color:#fff;}.p9{background:#ff301a;}.p-zero{background:#00ff88!important;color:#000!important;}.p-one{background:#ff3366!important;color:#fff!important;}
+}
+.num1{color:#0044ff;}.num2{color:#008800;}.num3{color:#ff0000;}.num4{color:#000088;}.num5{color:#880000;}.num6{color:#008888;}.num7{color:#000;}.num8{color:#888;}
+.results-container{max-width:800px;margin:0 auto;padding:16px;background:#f8f8f8;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+@media(prefers-color-scheme:dark){.results-container{background:#1c1c1e;}}
+.results-header{font-size:16px;font-weight:600;color:#007aff;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #007aff;text-align:center;}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+.result-section{background:white;padding:12px;border-radius:8px;border-left:4px solid #34c759;}
+.result-section.perf{border-left-color:#ff9500;}
+.result-section.mine-dist{border-left-color:#5856d6;}
+@media(prefers-color-scheme:dark){.result-section{background:#2c2c2e;}}
+.result-title{font-size:14px;font-weight:600;margin-bottom:8px;display:flex;gap:6px;color:#333;}
+.result-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px dashed #e5e5ea;}
+.result-item:last-child{border-bottom:none;}
+.result-label{color:#666;font-weight:500;}
+.result-value{font-weight:600;font-family:'Courier New',monospace;font-size:12px;color:#333;}
+.highlight{color:#ff3b30;}.good{color:#34c759;}.warning{color:#ff9500;}.info{color:#007aff;}
+.performance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.performance-item{background:#f5f5f7;padding:8px;border-radius:6px;text-align:center;}
+.performance-label{font-size:11px;color:#666;}.performance-value{font-size:14px;font-weight:700;color:#007aff;}
+.mine-dist-grid{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
+.mine-dist-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f5f5f7;border-radius:4px;font-size:12px;cursor:pointer;border:2px solid transparent;transition:all 0.1s;}
+.mine-dist-item:hover{background:#e8f4ff;transform:translateY(-1px);}
+.mine-dist-item.active{border-color:#007aff;background:#e8f4ff;font-weight:600;}
+.mine-dist-item.overall{background:#e8f7e8;border-color:#34c759;}
+.mine-dist-label{color:#666;}.mine-dist-value{font-weight:600;font-family:'Courier New',monospace;}.mine-dist-bar{height:4px;background:#007aff;border-radius:2px;margin-top:2px;}
+@media(prefers-color-scheme:dark){
+  .mine-dist-item{background:#3a3a3c;}.mine-dist-item:hover,.mine-dist-item.active{background:#2c2c6e;}.mine-dist-item.overall{background:#2c4a2c;}
+}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;}
+.modal-content{background:white;padding:20px;border-radius:12px;width:90%;max-width:500px;max-height:80vh;overflow-y:auto;}
+.modal h3{margin-bottom:15px;}.modal textarea{width:100%;height:150px;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:monospace;font-size:14px;margin-bottom:15px;resize:vertical;}
+.modal-buttons{display:flex;gap:10px;justify-content:flex-end;}.modal button{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:14px;}.modal .confirm{background:#007aff;color:white;}.modal .cancel{background:#e5e5ea;color:#333;}
+.format-info{font-size:12px;color:#666;margin-bottom:10px;padding:8px;background:#f5f5f5;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="ctrl">
+  行<input id="rows" value="9" style="width:60px;"> 列<input id="cols" value="9" style="width:60px;">
+  <!-- 雷数输入框明确：填入的是剩余雷数（即未标记的雷数） -->
+  剩余雷<input id="mines" value="-" placeholder="-" style="width:70px;" title="输入数字表示确定的剩余雷数，输入'-'表示剩余雷数未知">
+  <button class="reset" onclick="resetAll()">重置</button>
+  <button class="calc" onclick="startCalc()">计算</button>
+  <button class="reset-calc" onclick="stopCalc()" style="display:none;">停止</button>
+  <button class="import-export" onclick="showIE()">导入/导出</button>
+</div>
+<div id="tip">剩余雷数输入“-”表示未知；已标记的雷( M )自动计入总雷数；WASD/方向键移动</div>
+<div class="input-row">
+  <button onclick="setCell(0)">0</button><button onclick="setCell(1)">1</button><button onclick="setCell(2)">2</button>
+  <button onclick="setCell(3)">3</button><button onclick="setCell(4)">4</button><button onclick="setCell(5)">5</button>
+  <button onclick="setCell(6)">6</button><button onclick="setCell(7)">7</button><button onclick="setCell(8)">8</button>
+  <button onclick="setCell('M')">M</button><button onclick="setCell('?')">?</button>
+</div>
+<div class="board-wrap">
+  <div id="board">
+    <div id="curMineDisplay" class="current-mine-badge" style="display:none;">整体概率</div>
+  </div>
+</div>
+<div class="results-container" id="resultsContainer" style="display:none;">
+  <div class="results-header">📊 计算结果</div>
+  <div class="results-grid">
+    <div class="result-section mine-dist" id="mineDistSection" style="display:none;">
+      <div class="result-title">💣 总雷数分布 (含已标记)</div>
+      <div id="mineDistList" class="mine-dist-grid"></div>
+    </div>
+    <div class="result-section">
+      <div class="result-title">📋 基本信息</div>
+      <div id="basicInfo" class="result-data"></div>
+    </div>
+    <div class="result-section perf">
+      <div class="result-title">⚡ 性能</div>
+      <div id="perfInfo" class="performance-grid"></div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="ieModal">
+  <div class="modal-content">
+    <h3>📁 导入/导出局面</h3>
+    <div class="format-info">第一行: 行 列 剩余雷数(未知用-); 每行: -未开,9雷,0-8数字</div>
+    <textarea id="boardData" placeholder="粘贴或导出数据..."></textarea>
+    <div class="modal-buttons">
+      <button class="cancel" onclick="hideIE()">取消</button>
+      <button class="confirm" onclick="importBoard()">导入</button>
+      <button class="confirm" onclick="exportBoard()">导出</button>
+      <button class="confirm" onclick="copyBoard()">复制</button>
+    </div>
+  </div>
+</div>
+<script>
+// ========== 状态 ==========
+let R=9, C=9;
+let remMinesInput = '-';            // 用户输入的剩余雷数（数字或'-'）
+let grid = [], prob = [], curProb = [];
+let sel = null, elem = [];
+let isUnknown = true;              // 剩余雷数是否未知
+let flagged = 0;                  // 已标记的雷数 (M)
+let totalMines = 0;              // 总雷数 = flagged + 待定雷（仅在枚举后明确）
+
+// 枚举相关
+let isRunning = false, startTime = 0;
+let probByMines = new Map();      // 总雷数 -> 概率矩阵
+let mineDist = [];               // 总雷数分布 {totalMines, count}
+let curTotalMine = null;        // 当前显示的总雷数(null=整体)
+let unkCells = [], idxMap, constraints = [], okFlag = true;
+
+// ========== 初始化/重置 ==========
+function resetAll() {
+  const r = parseInt(document.getElementById('rows').value) || 9;
+  const c = parseInt(document.getElementById('cols').value) || 9;
+  R = Math.min(20, Math.max(3, r));
+  C = Math.min(30, Math.max(3, c));
+  document.getElementById('rows').value = R;
+  document.getElementById('cols').value = C;
+  
+  let m = document.getElementById('mines').value.trim();
+  remMinesInput = (m === '-') ? '-' : (parseInt(m) || 10);
+  document.getElementById('mines').value = remMinesInput;
+  isUnknown = (remMinesInput === '-');
+  
+  grid = Array(R).fill().map(() => Array(C).fill(-2));
+  prob = Array(R).fill().map(() => Array(C).fill(null));
+  curProb = Array(R).fill().map(() => Array(C).fill(null));
+  sel = null;
+  flagged = 0;
+  curTotalMine = null;
+  probByMines.clear();
+  mineDist = [];
+  isRunning = false;
+  hideCalcBtn();
+  hideResults();
+  hideCurBadge();
+  render();
+  tip(isUnknown ? 
+    "就绪" : 
+    `剩余雷数 = ${remMinesInput}，标记雷${flagged}个，总雷数 = ${flagged + parseInt(remMinesInput)}`);
+}
+
+function render() {
+  const b = document.getElementById('board');
+  const badge = document.getElementById('curMineDisplay');
+  b.innerHTML = '';
+  b.appendChild(badge);
+  elem = Array(R).fill().map(() => Array(C));
+  for (let i = 0; i < R; i++) {
+    const row = document.createElement('div'); row.className = 'row';
+    for (let j = 0; j < C; j++) {
+      const c = document.createElement('div'); c.className = 'cell';
+      c.dataset.i = i; c.dataset.j = j;
+      elem[i][j] = c;
+      c.onclick = () => select(i, j);
+      c.oncontextmenu = e => e.preventDefault();
+      row.appendChild(c);
+    }
+    b.appendChild(row);
+  }
+  for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) updateCell(i, j);
+}
+
+function select(i, j) {
+  if (sel) elem[sel.i][sel.j].classList.remove('selected');
+  sel = { i, j };
+  elem[i][j].classList.add('selected');
+  tip(`选中(${i+1},${j+1})`);
+}
+
+function setCell(v) {
+  if (!sel) return;
+  const { i, j } = sel;
+  // 如果之前是M，取消标记时需要减少flagged
+  if (grid[i][j] === 9) flagged--;
+  if (v === '?') grid[i][j] = -2;
+  else if (v === 'M') { grid[i][j] = 9; flagged++; }
+  else grid[i][j] = (v === 0) ? -1 : v;
+  prob[i][j] = curProb[i][j] = null;
+  updateCell(i, j);
+  // 更新tip提示总雷数变化
+  if (!isUnknown) {
+    const rem = parseInt(remMinesInput);
+    if (!isNaN(rem)) tip(`剩余雷数 = ${rem}，标记雷${flagged}个，总雷数 = ${flagged + rem}`);
+  } else {
+    tip(`标记雷${flagged}个，剩余雷数未知`);
+  }
+}
+
+function updateCell(i, j) {
+  const c = elem[i][j];
+  const val = grid[i][j];
+  c.className = 'cell';
+  c.querySelectorAll('.prob-badge').forEach(el => el.remove());
+  c.classList.remove('cell-zero', 'cell-one');
+  if (val === -2) {
+    c.textContent = '?';
+    const p = curProb[i][j];
+    if (p != null) {
+      let cls = '', disp = fmtProb(p);
+      if (p === 0) { cls = 'p-zero'; c.classList.add('cell-zero'); }
+      else if (p === 1) { cls = 'p-one'; c.classList.add('cell-one'); }
+      else cls = `p${Math.min(9, Math.max(0, Math.floor(p * 10)))}`;
+      const bdg = document.createElement('div');
+      bdg.className = `prob-badge ${cls}`;
+      bdg.textContent = disp;
+      c.appendChild(bdg);
+    }
+  } else if (val === 9) { c.textContent = 'M'; c.classList.add('mine'); }
+  else {
+    c.classList.add('open');
+    const n = val === -1 ? 0 : val;
+    c.textContent = n || '';
+    if (n >= 1) c.classList.add(`num${n}`);
+  }
+  if (sel && sel.i === i && sel.j === j) c.classList.add('selected');
+}
+
+function fmtProb(p) { return p === 0 ? '0' : p === 1 ? '100' : (p * 100).toFixed(1).replace(/\.0$/, ''); }
+function tip(s) { document.getElementById('tip').textContent = s; }
+
+// ========== 键盘移动 ==========
+document.addEventListener('keydown', e => {
+  if (!sel) return;
+  const k = e.key.toLowerCase();
+  let { i, j } = sel;
+  if (k === 'arrowup' || k === 'w') i--;
+  if (k === 'arrowdown' || k === 's') i++;
+  if (k === 'arrowleft' || k === 'a') j--;
+  if (k === 'arrowright' || k === 'd') j++;
+  if (i >= 0 && i < R && j >= 0 && j < C) { select(i, j); e.preventDefault(); }
+});
+
+// ========== 约束构建 ==========
+function buildConstraints() {
+  unkCells = [];
+  flagged = 0;
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      if (grid[i][j] === -2) unkCells.push([i, j]);
+      else if (grid[i][j] === 9) flagged++;
+    }
+  }
+  idxMap = new Map(unkCells.map((p, idx) => [`${p[0]},${p[1]}`, idx]));
+  constraints = [];
+  okFlag = true;
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      const v = grid[i][j];
+      if (v < 0 || v > 8) continue;
+      const nb = [];
+      let f = 0;
+      for (const [di, dj] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+        const y = i + di, x = j + dj;
+        if (y < 0 || y >= R || x < 0 || x >= C) continue;
+        if (grid[y][x] === 9) f++;
+        if (grid[y][x] === -2) nb.push(idxMap.get(`${y},${x}`));
+      }
+      const need = v - f;
+      if (need < 0 || need > nb.length) okFlag = false;
+      constraints.push([nb, need]);
+    }
+  }
+}
+
+// ========== 计算入口（剩余雷数未知/已知统一）==========
+function startCalc() {
+  if (isRunning) { tip("正在计算中..."); return; }
+  buildConstraints();
+  if (!okFlag) { tip("数字与标记雷冲突，无解"); return; }
+  
+  const remInput = document.getElementById('mines').value.trim();
+  isUnknown = (remInput === '-');
+  let fixedRemMines = isUnknown ? null : parseInt(remInput);
+  if (!isUnknown && (isNaN(fixedRemMines) || fixedRemMines < 0)) { tip("剩余雷数必须为非负整数"); return; }
+  
+  // 此时flagged已经是最新值
+  if (!isUnknown && fixedRemMines < 0) { tip("剩余雷数不能为负"); return; }
+  
+  isRunning = true;
+  showCalcBtn();
+  startTime = Date.now();
+  
+  // 重置概率数据
+  prob = Array(R).fill().map(() => Array(C).fill(null));
+  curProb = Array(R).fill().map(() => Array(C).fill(null));
+  probByMines.clear();
+  mineDist = [];
+  curTotalMine = null;
+  
+  const n = unkCells.length;
+  const usedMines = flagged;        // 已标记雷数
+  const maxRemainMines = n;         // 剩余未知格最多能埋的雷
+  
+  setTimeout(() => {
+    const t0 = performance.now();
+    let totalValid = 0, examined = 0;
+    let minTotalMine = Infinity, maxTotalMine = -Infinity;
+    const overallCnt = Array(n).fill(0);
+    const distMap = new Map();      // 总雷数 -> {count, cntArr}
+    
+    function check(asg) {
+      for (const [list, need] of constraints) {
+        let fx = 0, ud = 0;
+        for (const k of list) {
+          if (asg[k] === 1) fx++;
+          else if (asg[k] === -1) ud++;
+        }
+        if (fx > need || fx + ud < need) return false;
+      }
+      return true;
+    }
+    
+    function bt(pos, asg, placed) {   // placed: 当前未翻开格子中埋雷数
+      if (!isRunning) return;
+      if (pos === n) {
+        examined++;
+        // 对于已知剩余雷数: 必须 placed === fixedRemMines
+        // 对于未知剩余雷数: 所有placed均合法
+        if (isUnknown || placed === fixedRemMines) {
+          totalValid++;
+          const total = usedMines + placed;   // 总雷数
+          for (let k = 0; k < n; k++) if (asg[k] === 1) overallCnt[k]++;
+          
+          if (!distMap.has(total)) {
+            distMap.set(total, { count: 0, cntArr: Array(n).fill(0) });
+          }
+          const d = distMap.get(total);
+          d.count++;
+          for (let k = 0; k < n; k++) if (asg[k] === 1) d.cntArr[k]++;
+          
+          if (total < minTotalMine) minTotalMine = total;
+          if (total > maxTotalMine) maxTotalMine = total;
+        }
+        return;
+      }
+      if (!isRunning) return;
+      asg[pos] = 0; if (check(asg)) bt(pos + 1, asg, placed);
+      asg[pos] = 1; if (check(asg)) bt(pos + 1, asg, placed + 1);
+      asg[pos] = -1;
+    }
+    
+    const asg = Array(n).fill(-1);
+    bt(0, asg, 0);
+    
+    const t1 = performance.now();
+    const calcTime = t1 - t0;
+    const totalTime = Date.now() - startTime;
+    
+    if (!isRunning) { stopCalc(); return; }
+    isRunning = false;
+    hideCalcBtn();
+    
+    if (totalValid === 0) {
+      tip("无解");
+      hideResults();
+      return;
+    }
+    
+    // 整体概率
+    for (let k = 0; k < n; k++) {
+      const [x, y] = unkCells[k];
+      prob[x][y] = overallCnt[k] / totalValid;
+      curProb[x][y] = prob[x][y];
+    }
+    
+    // 各总雷数的概率矩阵
+    for (const [totalM, obj] of distMap.entries()) {
+      const mat = Array(R).fill().map(() => Array(C).fill(0));
+      for (let k = 0; k < n; k++) {
+        const [x, y] = unkCells[k];
+        mat[x][y] = obj.cntArr[k] / obj.count;
+      }
+      probByMines.set(totalM, mat);
+      mineDist.push({ totalMines: totalM, count: obj.count });
+    }
+    mineDist.sort((a, b) => a.totalMines - b.totalMines);
+    
+    // 显示结果
+    curTotalMine = null;   // 默认整体概率
+    for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) updateCell(i, j);
+    showResults();
+    
+    // 传入剩余雷数范围以便展示
+    const minRem = minTotalMine - flagged;
+    const maxRem = maxTotalMine - flagged;
+    updateResultPanel(totalValid, examined, calcTime, totalTime, 
+                      minTotalMine, maxTotalMine, minRem, maxRem, mineDist);
+    
+    if (isUnknown) {
+      showCurBadge(`整体概率 · 总雷数分布`);
+    } else {
+      hideCurBadge();
+    }
+    tip(`计算完成: ${totalValid}种布局 · 总雷数范围 ${minTotalMine}~${maxTotalMine} · 剩余雷数 ${minRem}~${maxRem}`);
+  }, 10);
+}
+
+// ========== 更新结果面板 ==========
+function updateResultPanel(total, examined, calcTime, totalTime, 
+                           minTotal, maxTotal, minRem, maxRem, distArr) {
+  const basic = document.getElementById('basicInfo');
+  const perf = document.getElementById('perfInfo');
+  const distDiv = document.getElementById('mineDistList');
+  basic.innerHTML = ''; perf.innerHTML = ''; distDiv.innerHTML = '';
+  
+  // 基本信息 - 重点显示总雷数和剩余雷数
+  let basicHtml = `
+    <div class="result-item"><span class="result-label">总耗时</span><span class="result-value highlight">${formatTime(totalTime)}</span></div>
+    <div class="result-item"><span class="result-label">枚举布局</span><span class="result-value">${examined.toLocaleString()}</span></div>
+    <div class="result-item"><span class="result-label">有效布局</span><span class="result-value ${total>0?'good':'warning'}">${total.toLocaleString()}</span></div>
+  `;
+  if (isUnknown) {
+    basicHtml += `
+      <div class="result-item"><span class="result-label">总雷数范围</span><span class="result-value info">${minTotal} ～ ${maxTotal}</span></div>
+      <div class="result-item"><span class="result-label">剩余雷数范围</span><span class="result-value info">${minRem} ～ ${maxRem}</span></div>
+      <div class="result-item"><span class="result-label">已标记雷数</span><span class="result-value">${flagged}</span></div>
+    `;
+  } else {
+    const fixedRem = parseInt(remMinesInput);
+    const totalFixed = flagged + fixedRem;
+    basicHtml += `
+      <div class="result-item"><span class="result-label">总雷数</span><span class="result-value">${totalFixed}</span></div>
+      <div class="result-item"><span class="result-label">剩余雷数</span><span class="result-value">${fixedRem}</span></div>
+      <div class="result-item"><span class="result-label">已标记雷数</span><span class="result-value">${flagged}</span></div>
+    `;
+  }
+  basic.innerHTML = basicHtml;
+  
+  // 性能
+  const lpms = calcTime ? examined / calcTime : 0;
+  const msl = calcTime / examined || 0;
+  perf.innerHTML = `
+    <div class="performance-item"><div class="performance-label">每毫秒</div><div class="performance-value">${lpms.toFixed(2)}</div></div>
+    <div class="performance-item"><div class="performance-label">每布局</div><div class="performance-value">${msl.toFixed(3)}ms</div></div>
+    ${total ? `<div class="performance-item"><div class="performance-label">有效/ms</div><div class="performance-value">${(total/calcTime).toFixed(2)}</div></div>
+    <div class="performance-item"><div class="performance-label">每有效</div><div class="performance-value">${(calcTime/total).toFixed(3)}ms</div></div>` : ''}
+  `;
+  
+  // 雷数分布：显示总雷数（并隐含剩余雷数）
+  if (isUnknown && distArr.length) {
+    document.getElementById('mineDistSection').style.display = 'block';
+    const maxCnt = Math.max(...distArr.map(d => d.count));
+    // 整体入口
+    const allItem = document.createElement('div');
+    allItem.className = 'mine-dist-item overall active';
+    allItem.dataset.total = 'overall';
+    allItem.innerHTML = `<div><span class="mine-dist-label">📌 整体概率</span><div class="mine-dist-bar" style="width:100%"></div></div>
+                         <span class="mine-dist-value">${total.toLocaleString()}(100%)</span>`;
+    allItem.onclick = () => switchMineView(null);
+    distDiv.appendChild(allItem);
+    
+    distArr.forEach(d => {
+      const totalM = d.totalMines;
+      const rem = totalM - flagged;   // 剩余雷数
+      const per = (d.count / total * 100).toFixed(1);
+      const item = document.createElement('div');
+      item.className = 'mine-dist-item';
+      item.dataset.total = totalM;
+      item.innerHTML = `<div>
+          <span class="mine-dist-label">总雷 ${totalM} (剩 ${rem})</span>
+          <div class="mine-dist-bar" style="width:${d.count/maxCnt*100}%"></div>
+        </div>
+        <span class="mine-dist-value">${d.count.toLocaleString()} (${per}%)</span>`;
+      item.onclick = () => switchMineView(totalM);
+      distDiv.appendChild(item);
+    });
+    switchMineView(null);
+  } else {
+    document.getElementById('mineDistSection').style.display = 'none';
+  }
+}
+
+function switchMineView(totalMine) {
+  curTotalMine = totalMine;
+  const isOverall = (totalMine === null);
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      if (isOverall) curProb[i][j] = prob[i][j];
+      else {
+        const mat = probByMines.get(totalMine);
+        curProb[i][j] = mat ? mat[i][j] : null;
+      }
+      updateCell(i, j);
+    }
+  }
+  // 更新选中样式
+  document.querySelectorAll('.mine-dist-item').forEach(el => {
+    el.classList.remove('active');
+    if (el.dataset.total === 'overall' && isOverall) el.classList.add('active');
+    else if (!isOverall && parseInt(el.dataset.total) === totalMine) el.classList.add('active');
+  });
+  
+  if (isOverall) {
+    showCurBadge(`整体概率 · 总雷数分布`);
+  } else {
+    const rem = totalMine - flagged;
+    showCurBadge(`总雷 ${totalMine} · 剩余雷 ${rem}`);
+  }
+}
+
+// ========== UI辅助 ==========
+function showCalcBtn() { document.querySelector('.reset-calc').style.display = 'inline-block'; document.querySelector('.calc').style.display = 'none'; }
+function hideCalcBtn() { document.querySelector('.reset-calc').style.display = 'none'; document.querySelector('.calc').style.display = 'inline-block'; }
+function hideResults() { document.getElementById('resultsContainer').style.display = 'none'; }
+function showResults() { document.getElementById('resultsContainer').style.display = 'block'; }
+function hideCurBadge() { document.getElementById('curMineDisplay').style.display = 'none'; }
+function showCurBadge(txt) { const b = document.getElementById('curMineDisplay'); b.textContent = txt; b.style.display = 'block'; }
+function stopCalc() { isRunning = false; tip("计算已停止"); hideCalcBtn(); }
+function formatTime(ms) { return ms < 1e4 ? `${ms.toFixed(2)}ms` : `${(ms/1000).toFixed(2)}s`; }
+
+// ========== 导入/导出 ==========
+function showIE() { document.getElementById('ieModal').style.display = 'flex'; exportBoard(); }
+function hideIE() { document.getElementById('ieModal').style.display = 'none'; }
+function exportBoard() {
+  let s = `${R} ${C} ${remMinesInput}\n`;
+  for (let i = 0; i < R; i++) {
+    for (let j = 0; j < C; j++) {
+      const v = grid[i][j];
+      s += (v === -2) ? '-' : (v === 9) ? '9' : (v === -1) ? '0' : v;
+    }
+    s += '\n';
+  }
+  document.getElementById('boardData').value = s.trim();
+}
+function copyBoard() { exportBoard(); document.getElementById('boardData').select(); document.execCommand('copy'); tip('已复制'); hideIE(); }
+function importBoard() {
+  try {
+    const txt = document.getElementById('boardData').value.trim();
+    if (!txt) return;
+    const lines = txt.split('\n');
+    if (lines.length < 2) return;
+    const [rr, cc, mm] = lines[0].trim().split(/\s+/);
+    const nr = parseInt(rr), nc = parseInt(cc);
+    if (nr < 3 || nr > 20 || nc < 3 || nc > 30) throw '行列范围';
+    document.getElementById('rows').value = nr;
+    document.getElementById('cols').value = nc;
+    document.getElementById('mines').value = mm;
+    resetAll();  // 这会重置flagged及grid
+    for (let i = 0; i < nr && i + 1 < lines.length; i++) {
+      const ln = lines[i + 1].trim();
+      if (ln.length < nc) continue;
+      for (let j = 0; j < nc; j++) {
+        const ch = ln[j];
+        if (ch === '-') grid[i][j] = -2;
+        else if (ch === '9') { grid[i][j] = 9; flagged++; }
+        else if (ch >= '0' && ch <= '8') grid[i][j] = (ch === '0' ? -1 : parseInt(ch));
+      }
+    }
+    for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) updateCell(i, j);
+    tip('导入成功'); hideIE();
+  } catch (e) { tip('导入失败'); }
+}
+document.getElementById('ieModal').addEventListener('click', e => { if (e.target === e.currentTarget) hideIE(); });
+
+// ========== 启动 ==========
+window.onload = () => {
+  document.getElementById('mines').value = '-';
+  resetAll();
+};
+</script>
+</body>
+</html>
