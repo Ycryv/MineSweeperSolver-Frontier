@@ -151,8 +151,8 @@ let nonFrontierCells = [];
 function resetAll() {
   const r = parseInt(document.getElementById('rows').value) || 9;
   const c = parseInt(document.getElementById('cols').value) || 9;
-  R = Math.min(20, Math.max(3, r));
-  C = Math.min(30, Math.max(3, c));
+  R = Math.max(3, r);
+  C = Math.max(3, c);
   document.getElementById('rows').value = R;
   document.getElementById('cols').value = C;
   
@@ -670,40 +670,4 @@ function exportBoard() {
   }
   document.getElementById('boardData').value = s.trim();
 }
-function copyBoard() { exportBoard(); document.getElementById('boardData').select(); document.execCommand('copy'); tip('已复制'); hideIE(); }
-function importBoard() {
-  try {
-    const txt = document.getElementById('boardData').value.trim();
-    if (!txt) return;
-    const lines = txt.split('\n');
-    if (lines.length < 2) return;
-    const [rr, cc, mm] = lines[0].trim().split(/\s+/);
-    const nr = parseInt(rr), nc = parseInt(cc);
-    if (nr < 3 || nr > 20 || nc < 3 || nc > 30) throw '行列范围';
-    document.getElementById('rows').value = nr;
-    document.getElementById('cols').value = nc;
-    document.getElementById('mines').value = mm;
-    resetAll();
-    for (let i = 0; i < nr && i + 1 < lines.length; i++) {
-      const ln = lines[i + 1].trim();
-      if (ln.length < nc) continue;
-      for (let j = 0; j < nc; j++) {
-        const ch = ln[j];
-        if (ch === '-') grid[i][j] = -2;
-        else if (ch === '9') { grid[i][j] = 9; flagged++; }
-        else if (ch >= '0' && ch <= '8') grid[i][j] = (ch === '0' ? -1 : parseInt(ch));
-      }
-    }
-    for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) updateCell(i, j);
-    tip('导入成功'); hideIE();
-  } catch (e) { tip('导入失败'); }
-}
-document.getElementById('ieModal').addEventListener('click', e => { if (e.target === e.currentTarget) hideIE(); });
-// ========== 启动 ==========
-window.onload = () => {
-  document.getElementById('mines').value = '-';
-  resetAll();
-};
-</script>
-</body>
-</html>
+function copyBoard() { exportBoard(); document.g
