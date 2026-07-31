@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>扫雷概率计算器(优化版)</title>
+<title>扫雷概率计算器</title>
 <link rel="manifest" href="manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -88,16 +88,16 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sa
   <button class="import-export" onclick="showIE()">导入/导出</button>
 </div>
 <div id="tip">剩余雷数输入“-”表示未知；已标记的雷( M )自动计入总雷数；WASD/方向键移动</div>
+<div class="board-wrap">
+  <div id="board">
+    <div id="curMineDisplay" class="current-mine-badge" style="display:none;">整体概率</div>
+  </div>
+</div>
 <div class="input-row">
   <button onclick="handleNumClick(0)">0</button><button onclick="handleNumClick(1)">1</button><button onclick="handleNumClick(2)">2</button>
   <button onclick="handleNumClick(3)">3</button><button onclick="handleNumClick(4)">4</button><button onclick="handleNumClick(5)">5</button>
   <button onclick="handleNumClick(6)">6</button><button onclick="handleNumClick(7)">7</button><button onclick="handleNumClick(8)">8</button>
   <button onclick="handleNumClick('M')">M</button><button onclick="handleNumClick('?')">?</button>
-</div>
-<div class="board-wrap">
-  <div id="board">
-    <div id="curMineDisplay" class="current-mine-badge" style="display:none;">整体概率</div>
-  </div>
 </div>
 <div class="results-container" id="resultsContainer" style="display:none;">
   <div class="results-header">📊 计算结果</div>
@@ -435,10 +435,11 @@ function startCalc() {
               if (asg[i] === 1) overallCnt[i] += ways;
             }
             if (!distMap.has(total)) {
-              distMap.set(total, { count: 0, cntArr: Array(n).fill(0), frontierMines: placedFrontier });
+              distMap.set(total, { count: 0, cntArr: Array(n).fill(0), nfSum: 0 });
             }
             const d = distMap.get(total);
             d.count += ways;
+            d.nfSum += ways * k;
             for (let i = 0; i < n; i++) {
               if (asg[i] === 1) d.cntArr[i] += ways;
             }
@@ -456,10 +457,11 @@ function startCalc() {
               if (asg[i] === 1) overallCnt[i] += ways;
             }
             if (!distMap.has(total)) {
-              distMap.set(total, { count: 0, cntArr: Array(n).fill(0), frontierMines: placedFrontier });
+              distMap.set(total, { count: 0, cntArr: Array(n).fill(0), nfSum: 0 });
             }
             const d = distMap.get(total);
             d.count += ways;
+            d.nfSum += ways * remainingMines;
             for (let i = 0; i < n; i++) {
               if (asg[i] === 1) d.cntArr[i] += ways;
             }
@@ -500,20 +502,13 @@ function startCalc() {
     }
     
     // 计算非前沿格概率
-    if (m > 0) {
-      const nonFrontierTotalMines = Array(m).fill(0);
-      for (const [totalM, obj] of distMap.entries()) {
-        const nonFrontierMines = totalM - usedMines - obj.frontierMines;
-        if (nonFrontierMines >= 0 && nonFrontierMines <= m) {
-          for (let i = 0; i < m; i++) {
-            nonFrontierTotalMines[i] += (nonFrontierMines / m) * obj.count;
-          }
-        }
-      }
-      for (let i = 0; i < m; i++) {
-        const [x, y] = nonFrontierCells[i];
-        prob[x][y] = nonFrontierTotalMines[i] / totalValid;
-        curProb[x][y] = prob[x][y];
+    if (m > 0 && totalValid > 0) {
+      let totalNFSum = 0;
+      for (const obj of distMap.values()) totalNFSum += obj.nfSum;
+      const perCell = totalNFSum / (m * totalValid);
+      for (const [x, y] of nonFrontierCells) {
+        prob[x][y] = perCell;
+        curProb[x][y] = perCell;
       }
     }
     
@@ -524,9 +519,8 @@ function startCalc() {
         const [x, y] = frontierCells[k];
         mat[x][y] = obj.cntArr[k] / obj.count;
       }
-      if (m > 0) {
-        const nonFrontierMines = totalM - usedMines - obj.frontierMines;
-        const nonFrontierProb = nonFrontierMines / m;
+      if (m > 0 && obj.count > 0) {
+        const nonFrontierProb = obj.nfSum / (m * obj.count);
         for (const [x, y] of nonFrontierCells) {
           mat[x][y] = nonFrontierProb;
         }
