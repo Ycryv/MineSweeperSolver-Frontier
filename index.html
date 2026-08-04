@@ -6,30 +6,31 @@
 <title>扫雷概率计算器</title>
 <link rel="manifest" href="manifest.json">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f2f2f7;padding:12px;color:#333;}
+:root{--bg:#F8F9FF;--surface:#FFFFFF;--sc:#EDF0F7;--sc-h:#E2E6F1;--sc-hh:#D5DAEB;--on:#1B1F2B;--onv:#464D5C;--out:#74798A;--outv:#C4C9D6;--scrim:rgba(25,40,80,.32);--p:#2F6BFF;--op:#FFFFFF;--pc:#DCE4FF;--opc:#00215E;--fill:#2F6BFF;--fon:#FFFFFF;}
 @media(prefers-color-scheme:dark){
-  body{background:#000;color:#fff;}
-  .ctrl input{background:#1c1c1e;border-color:#38383a;color:#fff;}
-  .ctrl button{color:#fff;}
-  .modal-content{background:#1c1c1e;color:#fff;}
-  .modal textarea{background:#2c2c2e;border-color:#38383a;color:#fff;}
-  .modal .cancel{background:#3a3a3c;color:#fff;}
-  .format-info{background:#2c2c2e;color:#e5e5ea;}
+:root{--bg:#10131A;--surface:#1A1E29;--sc:#262B38;--sc-h:#313846;--sc-hh:#3C4454;--on:#E3E6EE;--onv:#C3C7D2;--out:#8E93A3;--outv:#454A57;--scrim:rgba(0,0,0,.6);--p:#A9C7FF;--op:#001C5E;--pc:#29407A;--opc:#DCE4FF;--fill:#A9C7FF;--fon:#001C5E;}
 }
-.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
-.ctrl input{width:50px;height:40px;text-align:center;font-size:16px;border:1px solid #ccc;border-radius:8px;background:white;}
-.ctrl button{height:40px;padding:0 14px;font-size:15px;border:none;border-radius:8px;color:white;cursor:pointer;font-weight:500;}
-.reset{background:#8e8e93;}.calc{background:#ff3b30;}.reset-calc{background:#5856d6;}.import-export{background:#34c759;}
-#tip{font-size:14px;color:#333;margin-bottom:6px;text-align:center;}
-.input-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;}
-.input-row button{width:44px;height:44px;font-size:18px;font-weight:bold;border:none;border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:transform 0.1s;}
-.input-row button:active{transform:scale(0.95);}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;background:var(--bg);padding:20px 16px 48px;color:var(--on);}
+.app-header{font-size:22px;font-weight:600;text-align:center;color:var(--on);margin:4px 0 18px;letter-spacing:.2px;}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;justify-content:center;margin-bottom:14px;padding:8px 12px;background:var(--sc);border-radius:20px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.05);}
+.field{display:flex;align-items:center;gap:6px;background:var(--sc-h);border-radius:10px;padding:0 4px 0 10px;height:36px;}
+.field span{font-size:12px;color:var(--onv);font-weight:500;white-space:nowrap;}
+.ctrl input{width:56px;height:28px;text-align:center;font-size:15px;font-weight:600;color:var(--on);background:var(--sc);border:none;border-radius:7px;transition:box-shadow .15s,background .15s;}
+.ctrl input:focus{outline:none;background:var(--sc-hh);box-shadow:0 0 0 2px var(--p);}
+.ctrl-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;}
+.ctrl button{height:36px;padding:0 14px;font-size:13px;font-weight:600;border:none;border-radius:18px;cursor:pointer;letter-spacing:.3px;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .08s,filter .15s;color:var(--on);background:var(--sc-hh);}
+.ctrl button:active{transform:scale(.97);}
+.ctrl button.calc{background:var(--fill);color:var(--fon);}
+#tip{font-size:13px;color:var(--onv);margin:0 0 16px;text-align:center;background:var(--sc);padding:10px 18px;border-radius:22px;}
+.input-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:10px 0 26px;}
+.input-row button{width:50px;height:50px;font-size:20px;font-weight:700;font-family:inherit;border:none;border-radius:16px;background:var(--sc-h);transition:transform .08s,background .15s,box-shadow .15s;}
+.input-row button:active{transform:scale(.92);}
 /* 数字按钮选中高亮 */
-.input-row button.num-active{outline:3px solid #007aff;transform:scale(0.95);}
-.input-row button:nth-child(1){color:#000;}.input-row button:nth-child(2){color:#0044ff;}.input-row button:nth-child(3){color:#008800;}.input-row button:nth-child(4){color:#ff0000;}.input-row button:nth-child(5){color:#000088;}.input-row button:nth-child(6){color:#880000;}.input-row button:nth-child(7){color:#008888;}.input-row button:nth-child(8){color:#000;}.input-row button:nth-child(9){color:#888;}.input-row button:nth-child(10){color:#ff3b30;}.input-row button:nth-child(11){color:#007aff;}
-.board-wrap{display:flex;justify-content:center;overflow-x:auto;margin-top:8px;margin-bottom:20px;}
-#board{display:inline-block;background:#c0c0c0;border:2px solid #888;position:relative;}
+.input-row button.num-active{background:var(--pc);box-shadow:inset 0 0 0 2px var(--p);transform:scale(.94);}
+.input-row button:nth-child(1){color:var(--on);}.input-row button:nth-child(2){color:#0044ff;}.input-row button:nth-child(3){color:#008800;}.input-row button:nth-child(4){color:#ff0000;}.input-row button:nth-child(5){color:#000088;}.input-row button:nth-child(6){color:#880000;}.input-row button:nth-child(7){color:#008888;}.input-row button:nth-child(8){color:var(--on);}.input-row button:nth-child(9){color:#888;}.input-row button:nth-child(10){color:#ff3b30;}.input-row button:nth-child(11){color:#007aff;}
+.board-wrap{display:block;overflow-x:auto;margin-top:8px;margin-bottom:20px;scrollbar-width:thin;}
+#board{display:block;width:max-content;margin:0 auto;background:#c0c0c0;border:2px solid #888;position:relative;}
 .current-mine-badge{position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:#34c759;color:white;padding:4px 12px;border-radius:12px;font-size:14px;font-weight:600;white-space:nowrap;z-index:20;}
 .row{display:flex;}
 .cell{width:36px;height:36px;border:1px solid #888;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:22px;position:relative;background:#ddd;cursor:pointer;}
@@ -45,47 +46,48 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sa
   .p0{background:#1e7a1e;color:#fff;}.p1{background:#2d8a2d;}.p2{background:#3c9a3c;}.p3{background:#4baa4b;color:#000;}.p4{background:#5aba5a;}.p5{background:#ff8c1a;}.p6{background:#ff751a;}.p7{background:#ff5e1a;}.p8{background:#ff471a;color:#fff;}.p9{background:#ff301a;}.p-zero{background:#00ff88!important;color:#000!important;}.p-one{background:#ff3366!important;color:#fff!important;}
 }
 .num1{color:#0044ff;}.num2{color:#008800;}.num3{color:#ff0000;}.num4{color:#000088;}.num5{color:#880000;}.num6{color:#008888;}.num7{color:#000;}.num8{color:#888;}
-.results-container{max-width:800px;margin:0 auto;padding:16px;background:#f8f8f8;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-@media(prefers-color-scheme:dark){.results-container{background:#1c1c1e;}}
-.results-header{font-size:16px;font-weight:600;color:#007aff;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #007aff;text-align:center;}
-.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
-.result-section{background:white;padding:12px;border-radius:8px;border-left:4px solid #34c759;}
-.result-section.perf{border-left-color:#ff9500;}
-.result-section.mine-dist{border-left-color:#5856d6;}
-@media(prefers-color-scheme:dark){.result-section{background:#2c2c2e;}}
-.result-title{font-size:14px;font-weight:600;margin-bottom:8px;display:flex;gap:6px;color:#333;}
-.result-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px dashed #e5e5ea;}
+.results-container{max-width:840px;margin:0 auto;padding:20px;background:var(--sc);border-radius:28px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.05);}
+.results-header{font-size:17px;font-weight:600;color:var(--p);margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--pc);text-align:center;letter-spacing:.2px;}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+.result-section{background:var(--surface);padding:16px;border-radius:16px;border:1px solid var(--outv);border-top:3px solid var(--pc);}
+.result-title{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--on);display:flex;gap:8px;align-items:center;}
+.result-title::before{content:'';width:4px;height:14px;background:var(--p);border-radius:2px;flex:none;}
+.result-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--outv);}
 .result-item:last-child{border-bottom:none;}
-.result-label{color:#666;font-weight:500;}
-.result-value{font-weight:600;font-family:'Courier New',monospace;font-size:12px;color:#333;}
-.highlight{color:#ff3b30;}.good{color:#34c759;}.warning{color:#ff9500;}.info{color:#007aff;}
-.performance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.performance-item{background:#f5f5f7;padding:8px;border-radius:6px;text-align:center;}
-.performance-label{font-size:11px;color:#666;}.performance-value{font-size:14px;font-weight:700;color:#007aff;}
-.mine-dist-grid{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
-.mine-dist-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f5f5f7;border-radius:4px;font-size:12px;cursor:pointer;border:2px solid transparent;transition:all 0.1s;}
-.mine-dist-item:hover{background:#e8f4ff;transform:translateY(-1px);}
-.mine-dist-item.active{border-color:#007aff;background:#e8f4ff;font-weight:600;}
-.mine-dist-item.overall{background:#e8f7e8;border-color:#34c759;}
-.mine-dist-label{color:#666;}.mine-dist-value{font-weight:600;font-family:'Courier New',monospace;}.mine-dist-bar{height:4px;background:#007aff;border-radius:2px;margin-top:2px;}
-@media(prefers-color-scheme:dark){
-  .mine-dist-item{background:#3a3a3c;}.mine-dist-item:hover,.mine-dist-item.active{background:#2c2c6e;}.mine-dist-item.overall{background:#2c4a2c;}
-}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;}
-.modal-content{background:white;padding:20px;border-radius:12px;width:90%;max-width:500px;max-height:80vh;overflow-y:auto;}
-.modal h3{margin-bottom:15px;}.modal textarea{width:100%;height:150px;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:monospace;font-size:14px;margin-bottom:15px;resize:vertical;}
-.modal-buttons{display:flex;gap:10px;justify-content:flex-end;}.modal button{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:14px;}.modal .confirm{background:#007aff;color:white;}.modal .cancel{background:#e5e5ea;color:#333;}
-.format-info{font-size:12px;color:#666;margin-bottom:10px;padding:8px;background:#f5f5f5;border-radius:4px;}
+.result-label{color:var(--onv);font-weight:500;}
+.result-value{font-weight:600;font-family:ui-monospace,'SFMono-Regular','Courier New',monospace;font-size:12.5px;color:var(--on);}
+.highlight{color:#ff3b30;}.good{color:#1f9d55;}.warning{color:#b26a00;}.info{color:var(--p);}
+.performance-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.performance-item{background:var(--sc-h);padding:12px 8px;border-radius:12px;text-align:center;}
+.performance-label{font-size:11px;color:var(--onv);}.performance-value{font-size:15px;font-weight:700;color:var(--p);}
+.mine-dist-grid{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding-right:4px;}
+.mine-dist-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--sc-h);border-radius:12px;font-size:12px;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.mine-dist-item:hover{background:var(--sc-hh);transform:translateY(-1px);}
+.mine-dist-item.active{background:var(--sc-hh);border-color:var(--p);font-weight:600;}
+.mine-dist-item.overall{background:var(--sc-hh);border-color:var(--outv);}
+.mine-dist-label{color:var(--onv);}.mine-dist-value{font-weight:600;font-family:ui-monospace,monospace;color:var(--on);}.mine-dist-bar{height:5px;background:var(--p);border-radius:3px;margin-top:3px;}
+.modal{display:none;position:fixed;inset:0;background:var(--scrim);z-index:1000;justify-content:center;align-items:center;padding:16px;}
+@keyframes pop{from{transform:translateY(16px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.modal-content{background:var(--surface);padding:24px;border-radius:28px;width:100%;max-width:500px;max-height:82vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:pop .22s ease;display:flex;flex-direction:column;}
+.modal h3{margin-bottom:14px;font-size:17px;font-weight:600;color:var(--on);flex:none;}.modal textarea{width:100%;height:220px;min-height:220px;flex:1 1 auto;padding:12px;border:1px solid var(--outv);border-radius:12px;font-family:ui-monospace,monospace;font-size:14px;margin-bottom:16px;resize:vertical;background:var(--sc-h);color:var(--on);transition:border-color .15s,box-shadow .15s;}
+.modal textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 2px var(--pc);}
+.modal-buttons{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;flex:none;} .modal button{padding:10px 20px;border:none;border-radius:22px;cursor:pointer;font-size:14px;font-weight:600;color:var(--on);background:var(--sc-hh);transition:transform .08s,filter .15s;}
+.modal button:active{transform:scale(.96);} .modal .confirm{background:var(--fill);color:var(--fon);} .modal .cancel{background:var(--sc-hh);color:var(--on);}
+.format-info{font-size:12px;color:var(--onv);margin-bottom:12px;padding:10px 12px;background:var(--sc-h);border-radius:12px;line-height:1.6;}
 </style>
 </head>
 <body>
+<div class="app-header">扫雷概率计算器</div>
 <div class="ctrl">
-  行<input id="rows" value="9" style="width:60px;"> 列<input id="cols" value="9" style="width:60px;">
-  剩余雷<input id="mines" value="-" placeholder="-" style="width:70px;" title="输入数字表示确定的剩余雷数，输入'-'表示剩余雷数未知">
-  <button class="reset" onclick="resetAll()">重置</button>
-  <button class="calc" onclick="startCalc()">计算</button>
-  <button class="reset-calc" onclick="stopCalc()" style="display:none;">停止</button>
-  <button class="import-export" onclick="showIE()">导入/导出</button>
+  <label class="field"><span>行</span><input id="rows" value="9"></label>
+  <label class="field"><span>列</span><input id="cols" value="9"></label>
+  <label class="field"><span>剩余雷</span><input id="mines" value="-" placeholder="-" title="输入数字表示确定的剩余雷数，输入'-'表示剩余雷数未知"></label>
+  <div class="ctrl-btns">
+    <button class="reset" onclick="resetAll()">重置</button>
+    <button class="calc" onclick="startCalc()">计算</button>
+    <button class="reset-calc" onclick="stopCalc()" style="display:none;">停止</button>
+    <button class="import-export" onclick="showIE()">导入/导出</button>
+  </div>
 </div>
 <div id="tip">剩余雷数输入“-”表示未知；已标记的雷( M )自动计入总雷数；WASD/方向键移动</div>
 <div class="board-wrap">
@@ -100,25 +102,25 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sa
   <button onclick="handleNumClick('M')">M</button><button onclick="handleNumClick('?')">?</button>
 </div>
 <div class="results-container" id="resultsContainer" style="display:none;">
-  <div class="results-header">📊 计算结果</div>
+  <div class="results-header">计算结果</div>
   <div class="results-grid">
     <div class="result-section mine-dist" id="mineDistSection" style="display:none;">
-      <div class="result-title">💣 总雷数分布 (含已标记)</div>
+      <div class="result-title">总雷数分布 (含已标记)</div>
       <div id="mineDistList" class="mine-dist-grid"></div>
     </div>
     <div class="result-section">
-      <div class="result-title">📋 基本信息</div>
+      <div class="result-title">基本信息</div>
       <div id="basicInfo" class="result-data"></div>
     </div>
     <div class="result-section perf">
-      <div class="result-title">⚡ 性能</div>
+      <div class="result-title">性能</div>
       <div id="perfInfo" class="performance-grid"></div>
     </div>
   </div>
 </div>
 <div class="modal" id="ieModal">
   <div class="modal-content">
-    <h3>📁 导入/导出局面</h3>
+    <h3>导入/导出局面</h3>
     <div class="format-info">第一行: 行 列 剩余雷数(未知用-); 每行: -未开,9雷,0-8数字</div>
     <textarea id="boardData" placeholder="粘贴或导出数据..."></textarea>
     <div class="modal-buttons">
@@ -590,7 +592,7 @@ function updateResultPanel(total, examined, calcTime, totalTime,
     const allItem = document.createElement('div');
     allItem.className = 'mine-dist-item overall active';
     allItem.dataset.total = 'overall';
-    allItem.innerHTML = `<div><span class="mine-dist-label">📌 整体概率</span><div class="mine-dist-bar" style="width:100%"></div></div>
+    allItem.innerHTML = `<div><span class="mine-dist-label">整体概率</span><div class="mine-dist-bar" style="width:100%"></div></div>
                          <span class="mine-dist-value">${total.toLocaleString()}(100%)</span>`;
     allItem.onclick = () => switchMineView(null);
     distDiv.appendChild(allItem);
